@@ -42,14 +42,10 @@
 #define TD4300_ID_LEN	3
 
 #ifdef CONFIG_FB
-#define FB_READY_RESET
-#define FB_READY_WAIT_MS 100
-#define FB_READY_TIMEOUT_S 30
-#endif
-
-#ifdef CONFIG_FB
 static int synaptics_rmi4_fb_notifier_cb(struct notifier_block *self,
 		unsigned long event, void *data);
+extern int input_enable_device(struct input_dev *dev);
+extern int input_disable_device(struct input_dev *dev);
 #endif
 
 static void Octa_id_read_info(void);
@@ -3489,28 +3485,18 @@ int synaptics_rmi4_new_function(enum exp_fn fn_type,
 static int synaptics_rmi4_fb_notifier_cb(struct notifier_block *self,
 		unsigned long event, void *data)
 {
-	int *transition;
-	struct fb_event *evdata = data;
+	struct fb_event *evdata = (struct fb_event *)data;
 	struct synaptics_rmi4_data *rmi4_data =
 			container_of(self, struct synaptics_rmi4_data,
 			fb_notifier);
 
 	if (evdata && evdata->data && rmi4_data) {
-		transition = evdata->data;
-		if (event == FB_EARLY_EVENT_BLANK) {
-			if (*transition == FB_BLANK_POWERDOWN) {
-				if (rmi4_data->fb_ready) {
-					synaptics_rmi4_input_close(rmi4_data->input_dev);
-					rmi4_data->fb_ready = false;
-				}
-			}
-		} else if (event == FB_EVENT_BLANK) {
-			if (*transition == FB_BLANK_UNBLANK) {
-				if (!rmi4_data->fb_ready) {
-					synaptics_rmi4_input_open(rmi4_data->input_dev);
-					rmi4_data->fb_ready = true;
-				}
-			}
+		int *transition = (int *)evdata->data;
+		if (event == FB_EVENT_BLANK) {
+			if (*transition == FB_BLANK_UNBLANK)
+				input_enable_device(rmi4_data->input_dev);
+			else
+				input_disable_device(rmi4_data->input_dev);
 		}
 	}
 
@@ -3971,7 +3957,6 @@ err_tsp_reboot:
 	register_early_suspend(&rmi4_data->early_suspend);
 #endif
 #ifdef CONFIG_FB
-	rmi4_data->fb_ready = true;
 	rmi4_data->fb_notifier.notifier_call = synaptics_rmi4_fb_notifier_cb;
 	retval = fb_register_client(&rmi4_data->fb_notifier);
 	if (retval < 0) {

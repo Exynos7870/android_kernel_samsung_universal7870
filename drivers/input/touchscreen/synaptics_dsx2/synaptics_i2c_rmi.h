@@ -1402,9 +1402,6 @@ struct synaptics_rmi4_data {
 	struct workqueue_struct *reset_workqueue;
 #endif
 	const char *firmware_name;
-#ifdef CONFIG_FB
-	bool fb_ready;
-#endif
 	struct completion init_done;
 	struct synaptics_finger finger[MAX_NUMBER_OF_FINGERS];
 	unsigned short i2c_addr;
